@@ -27,6 +27,12 @@ OperationDelete::OperationDelete( const Device & device, const Partition & parti
 	this->device = device.get_copy_without_partitions();
 	this ->partition_original = partition_orig ;
 }
+
+void OperationDelete::OperationDeleteDod()
+{
+	type = OPERATION_DELETE_DOD ;
+}
+
 	
 void OperationDelete::apply_to_visual( std::vector<Partition> & partitions ) 
 {
