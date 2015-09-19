@@ -114,7 +114,10 @@ private:
 		toggle_item( state, MENU_CHANGE_UUID ) ; }
 
 	void allow_info( bool state )	{
-		toggle_item( state, MENU_INFO ) ; } 
+		toggle_item( state, MENU_INFO ) ; }
+
+	void allow_delete_dod( bool state )	{ 
+		toggle_item( state, MENU_DEL_DOD, TOOLBAR_DEL_DOD ) ; }  
 
 	void allow_undo_clear_apply( bool state )
 	{
@@ -163,6 +166,7 @@ private:
 	void activate_paste();
 	void activate_new();
 	void activate_delete();
+	void activate_delete_dod();
 	void activate_info();
 	void activate_format( GParted::FILESYSTEM new_fs );
 	void toggle_busy_state() ;
@@ -236,9 +240,9 @@ private:
 	treeview_devices_Columns treeview_devices_columns ;
 	
 	//indices for partitionmenu and toolbar
-        int
+	int
         MENU_NEW, TOOLBAR_NEW,
-        MENU_DEL, TOOLBAR_DEL,
+        MENU_DEL, TOOLBAR_DEL, TOOLBAR_DEL_DOD,
         MENU_RESIZE_MOVE, TOOLBAR_RESIZE_MOVE,
         MENU_COPY, TOOLBAR_COPY,
         MENU_PASTE, TOOLBAR_PASTE,
@@ -252,7 +256,8 @@ private:
 	MENU_CHANGE_UUID,
         MENU_INFO,
         TOOLBAR_UNDO,
-        TOOLBAR_APPLY ;
+        TOOLBAR_APPLY,
+	MENU_DEL_DOD ;
 
 	//usefull variables which are used by many different functions...
 	int index_extended ; //position of the extended partition (-1 means there isn't one)
