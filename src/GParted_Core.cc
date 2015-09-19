@@ -2264,17 +2264,11 @@ bool GParted_Core::Delete( const Partition & partition, OperationDetail & operat
 
 bool GParted_Core::DeleteDod( const Partition & partition, OperationDetail & operationdetail ) 
 {
-
-	//EDM 2015_09_12 Start
-	//Trying to loop through all of the sectors in this partition.
+	
 	std::ofstream fDiskDataLog("Disk_Data_Log.txt") ;
-	if(!fDiskDataLog)
-	{
-		fDiskDataLog << "Cannot open Disk_Data_Log.txt file." << std::endl ;
-	}
+        
 	fDiskDataLog << "Start of Disk Data Log" << std::endl << std::endl ;
 	Sector sectors_end = partition.get_sector_length() ;
-        //End
 
         
 	operationdetail .add_child( OperationDetail( _("delete partition DoD std 5220.22") ) ) ;
@@ -2283,18 +2277,15 @@ bool GParted_Core::DeleteDod( const Partition & partition, OperationDetail & ope
 	
 
 	//Get device, disk & partition and open the device.  Allocate buffer and fill with
-	//  zeros.  Buffer size is the greater of 4 KiB and the sector size.
+	//  random numbers, its compliment and another set of random numbers.  
 	PedDevice* lp_device = NULL ;
 	PedDisk* lp_disk = NULL ;
 	PedPartition* lp_partition = NULL ;
 	bool device_is_open = false ;
-	static Byte_Value bufsize = ( uint64_t ) pow( 2 , 2 ) * KIBIBYTE; //equivalent of 16 sectors where 1 sector = 4096 bytes
-        //static Byte_Value bufsize = 1LL * 4LL * KIBIBYTE; //equivalent of 16 sectors where 1 sector = 4096 bytes
-        uint64_t ui64SectorMult = (bufsize/BytesPerSector) * 4 ; //(bufsize/BytesPerSector) sectors at a time
+	static Byte_Value bufsize = ( uint64_t ) pow( 2 , 2 ) * KIBIBYTE; //standard size of 1 sector, 18 Sep 2015
+        uint64_t ui64SectorMult = (bufsize/BytesPerSector) * 4 ; 
 	
-                   
-        
-        //uint64_t ui64RandBuf1 [bufsize] ;
+        //Create 4 buffers to keep a random number
         uint64_t * h_ui64RandBuf1 = NULL ;
         h_ui64RandBuf1 = static_cast<uint64_t *>( calloc( bufsize , sizeof ( uint64_t ) ) ) ;
         uint64_t * h_ui64RandBuf2 = NULL ;
@@ -2304,6 +2295,7 @@ bool GParted_Core::DeleteDod( const Partition & partition, OperationDetail & ope
         uint64_t * h_ui64RandBuf4 = NULL ;
         h_ui64RandBuf4 = static_cast<uint64_t *>( calloc( bufsize, sizeof ( uint64_t ) ) ) ;
         
+        //Create 4 buffers to keep the compliment of the previously generated random number
         uint64_t * h_ui64RandBufComp1 = NULL ;
         h_ui64RandBufComp1 = static_cast<uint64_t *>( calloc( bufsize , sizeof ( uint64_t ) ) ) ;
         uint64_t * h_ui64RandBufComp2 = NULL ;
@@ -2313,6 +2305,7 @@ bool GParted_Core::DeleteDod( const Partition & partition, OperationDetail & ope
         uint64_t * h_ui64RandBufComp4 = NULL ;
         h_ui64RandBufComp4 = static_cast<uint64_t *>( calloc( bufsize, sizeof ( uint64_t ) ) ) ;
         
+        //Create 4 buffers to keep a new random number
         uint64_t * h_ui64RandBuf2nd1 = NULL ;
         h_ui64RandBuf2nd1 = static_cast<uint64_t *>( calloc( bufsize , sizeof ( uint64_t ) ) ) ;
         uint64_t * h_ui64RandBuf2nd2 = NULL ;
@@ -2350,13 +2343,12 @@ bool GParted_Core::DeleteDod( const Partition & partition, OperationDetail & ope
 
 
 	bool zero_success = 0 ;
-
-	//EDM 2015_09_13 Start
         
         for ( uint64_t i = 0 ; i < ( sectors_end / ui64SectorMult ) ; i++)
         {
             uint dStartClock = clock(); // in micro (u) seconds, 10^-6 seconds.
             
+            //Do the prescribed algorithm 3 times.
             for(int k = 0 ; k < 3 ; k++ )
             {
                 pui64StartAddr[0] = h_ui64RandBuf1 ;
@@ -2374,6 +2366,7 @@ bool GParted_Core::DeleteDod( const Partition & partition, OperationDetail & ope
                 pui64StartAddr2nd[2] = h_ui64RandBuf2nd3 ;
                 pui64StartAddr2nd[3] = h_ui64RandBuf2nd4 ;
                 
+                //Set values in the buffers
                 for (int j = 0 ; j < bufsize ; j++)
                 {
                     memset( h_ui64RandBuf1, rand64(), 1 ) ;
@@ -2421,75 +2414,77 @@ bool GParted_Core::DeleteDod( const Partition & partition, OperationDetail & ope
                 h_ui64RandBuf2nd3 = pui64StartAddr2nd[2] ;
                 h_ui64RandBuf2nd4 = pui64StartAddr2nd[3] ;
                 
-                zero_success = ped_device_write( lp_device, h_ui64RandBuf1, //4096, ( 64 * 1024), Bytes * 16 sectors written, 
+                //Write the data onto the hard drive.
+                zero_success = ped_device_write( lp_device, h_ui64RandBuf1, 
                         ( i * ui64SectorMult ) +( 0 * bufsize ),
                         ui64SectorMult ) ;
                 if (!zero_success)
                     break;
-                zero_success = ped_device_write( lp_device, h_ui64RandBuf2, //4096, ( 64 * 1024), Bytes * 16 sectors written, 
+                zero_success = ped_device_write( lp_device, h_ui64RandBuf2, 
                         ( i * ui64SectorMult ) +( 1 * bufsize ),
                         ui64SectorMult ) ;
                 if (!zero_success)
                     break;
-                zero_success = ped_device_write( lp_device, h_ui64RandBuf3, //4096, ( 64 * 1024), Bytes * 16 sectors written, 
+                zero_success = ped_device_write( lp_device, h_ui64RandBuf3, 
                         ( i * ui64SectorMult ) + ( 2 * bufsize ),
                         ui64SectorMult ) ;
                 if (!zero_success)
                     break;
-                zero_success = ped_device_write( lp_device, h_ui64RandBuf4, //4096, ( 64 * 1024), Bytes * 16 sectors written, 
+                zero_success = ped_device_write( lp_device, h_ui64RandBuf4, 
                         ( i * ui64SectorMult ) + ( 3 * bufsize ),
                         ui64SectorMult ) ;
                 if (!zero_success)
                     break;
                 
-                zero_success = ped_device_write( lp_device, h_ui64RandBufComp1, //4096, ( 64 * 1024), Bytes * 16 sectors written, 
+                zero_success = ped_device_write( lp_device, h_ui64RandBufComp1, 
                         ( i * ui64SectorMult ) +( 0 * bufsize ),
                         ui64SectorMult ) ;
                 if (!zero_success)
                     break;
-                zero_success = ped_device_write( lp_device, h_ui64RandBufComp2, //4096, ( 64 * 1024), Bytes * 16 sectors written, 
+                zero_success = ped_device_write( lp_device, h_ui64RandBufComp2, 
                         ( i * ui64SectorMult ) +( 1 * bufsize ),
                         ui64SectorMult ) ;
                 if (!zero_success)
                     break;
-                zero_success = ped_device_write( lp_device, h_ui64RandBufComp3, //4096, ( 64 * 1024), Bytes * 16 sectors written, 
+                zero_success = ped_device_write( lp_device, h_ui64RandBufComp3, 
                         ( i * ui64SectorMult ) + ( 2 * bufsize ),
                         ui64SectorMult ) ;
                 if (!zero_success)
                     break;
-                zero_success = ped_device_write( lp_device, h_ui64RandBufComp4, //4096, ( 64 * 1024), Bytes * 16 sectors written, 
+                zero_success = ped_device_write( lp_device, h_ui64RandBufComp4, 
                         ( i * ui64SectorMult ) + ( 3 * bufsize ),
                         ui64SectorMult ) ;
                 if (!zero_success)
                     break;
                 
-                zero_success = ped_device_write( lp_device, h_ui64RandBuf2nd1, //4096, ( 64 * 1024), Bytes * 16 sectors written, 
+                zero_success = ped_device_write( lp_device, h_ui64RandBuf2nd1, 
                         ( i * ui64SectorMult ) +( 0 * bufsize ),
                         ui64SectorMult ) ;
                 if (!zero_success)
                     break;
-                zero_success = ped_device_write( lp_device, h_ui64RandBuf2nd2, //4096, ( 64 * 1024), Bytes * 16 sectors written, 
+                zero_success = ped_device_write( lp_device, h_ui64RandBuf2nd2, 
                         ( i * ui64SectorMult ) +( 1 * bufsize ),
                         ui64SectorMult ) ;
                 if (!zero_success)
                     break;
-                zero_success = ped_device_write( lp_device, h_ui64RandBuf2nd3, //4096, ( 64 * 1024), Bytes * 16 sectors written, 
+                zero_success = ped_device_write( lp_device, h_ui64RandBuf2nd3, 
                         ( i * ui64SectorMult ) + ( 2 * bufsize ),
                         ui64SectorMult ) ;
                 if (!zero_success)
                     break;
-                zero_success = ped_device_write( lp_device, h_ui64RandBuf2nd4, //4096, ( 64 * 1024), Bytes * 16 sectors written, 
+                zero_success = ped_device_write( lp_device, h_ui64RandBuf2nd4, 
                         ( i * ui64SectorMult ) + ( 3 * bufsize ),
                         ui64SectorMult ) ;
                 if (!zero_success)
                     break;
             
             }    
-            
+            //Calculate time it takes to write in set sectors.
             dStartClock = ( ( ( double ) ui64SectorMult * 1000000 ) / (  clock() - dStartClock ) ) ; //saving memory by reusing dStartClock
             
             if ( ( i % 20) == 0 ) //Every 20 i this is true.
             {
+                //Update datafile Disk_Data_Log.txt.
                 fDiskDataLog.close();
                 fDiskDataLog.open("Disk_Data_Log.txt", std::fstream::out | std::fstream::trunc);
                 fDiskDataLog << "Start of Disk Data Log" << std::endl << std::endl ;
@@ -2500,6 +2495,7 @@ bool GParted_Core::DeleteDod( const Partition & partition, OperationDetail & ope
             
         }
         
+        //Free the memory set by calloc().
         free(h_ui64RandBuf1) ;
         free(h_ui64RandBuf2) ;
         free(h_ui64RandBuf3) ;
@@ -2516,7 +2512,6 @@ bool GParted_Core::DeleteDod( const Partition & partition, OperationDetail & ope
         free(h_ui64RandBuf2nd4) ;
         
         overall_success &= zero_success ;
-	//End
 	
 	//Linux kernel doesn't maintain buffer cache coherency between the whole disk
 	//  device and partition devices.  So even though the file system signatures
