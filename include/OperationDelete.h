@@ -26,6 +26,7 @@ class OperationDelete : public Operation
 {
 public:
 	OperationDelete( const Device & device, const Partition & partition_orig ) ;
+	void OperationDeleteDod() ;
 	
 	void apply_to_visual( std::vector<Partition> & partitions ) ;
 		
