@@ -33,7 +33,8 @@ enum OperationType {
 	OPERATION_COPY             = 5,
 	OPERATION_LABEL_FILESYSTEM = 6,
 	OPERATION_CHANGE_UUID      = 7,
-	OPERATION_NAME_PARTITION   = 8
+	OPERATION_NAME_PARTITION   = 8,
+	OPERATION_DELETE_DOD       = 9,
 };
 
 class Operation
@@ -43,6 +44,7 @@ public:
 	Operation() ;
 	virtual ~Operation() {}
 	
+	void OperationDeleteDod() ;
 	virtual void apply_to_visual( std::vector<Partition> & partitions ) = 0 ;
 	virtual void create_description() = 0 ;
 
