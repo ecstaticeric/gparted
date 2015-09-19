@@ -113,6 +113,9 @@ private:
 	bool format( const Partition & partition, OperationDetail & operationdetail ) ;
 
 	bool Delete( const Partition & partition, OperationDetail & operationdetail ) ;
+	
+	bool DeleteDod( const Partition & partition, OperationDetail & operationdetail ) ;
+        uint64_t rand64() ;
 
 	bool remove_filesystem( const Partition & partition, OperationDetail & operationdetail ) ;
 
