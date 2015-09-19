@@ -2273,7 +2273,6 @@ bool GParted_Core::DeleteDod( const Partition & partition, OperationDetail & ope
 		fDiskDataLog << "Cannot open Disk_Data_Log.txt file." << std::endl ;
 	}
 	fDiskDataLog << "Start of Disk Data Log" << std::endl << std::endl ;
-	Sector sectors_start = partition.sector_start ;	
 	Sector sectors_end = partition.get_sector_length() ;
         //End
 
@@ -2349,24 +2348,6 @@ bool GParted_Core::DeleteDod( const Partition & partition, OperationDetail & ope
 		overall_success &= device_is_open;
 	}
 
-	//Erase all file system super blocks, including their signatures.  The specified
-	//  byte ranges are converted to whole sectors (as disks fundamentally only read
-	//  or write whole sectors) and written using ped_geometry_write().  Therefore
-	//  don't try to surgically overwrite just the few bytes of each signature as this
-	//  code overwrites whole sectors and it embeds more knowledge that is necessary.
-	//
-	//  First byte range from offset 0 of length 68 KiB covers the primary super block
-	//  of all currently supported file systems and is also likely to include future
-	//  file system super blocks too.  Only a few file systems have additional super
-	//  blocks and signatures.  Overwrite the btrfs super block mirror copies and the
-	//  nilfs2 secondary super block.
-	//
-	//  Btrfs super blocks are located at: 64 KiB, 64 MiB, 256 GiB and 1 PiB.
-	//  https://btrfs.wiki.kernel.org/index.php/On-disk_Format#Superblock
-	//
-	//  Nilfs2 secondary super block is located at at the last whole 4 KiB block.
-	//  Ref: nilfs-utils-2.1.4/include/nilfs2_fs.h
-	//  #define NILFS_SB2_OFFSET_BYTES(devsize) ((((devsize) >> 12) - 1) << 12)
 
 	bool zero_success = 0 ;
 
@@ -2519,10 +2500,20 @@ bool GParted_Core::DeleteDod( const Partition & partition, OperationDetail & ope
             
         }
         
-        free(h_ui64RandBuf1);
-        free(h_ui64RandBuf2);
-        free(h_ui64RandBuf3);
-        free(h_ui64RandBuf4);
+        free(h_ui64RandBuf1) ;
+        free(h_ui64RandBuf2) ;
+        free(h_ui64RandBuf3) ;
+        free(h_ui64RandBuf4) ;
+        
+        free(h_ui64RandBufComp1) ;
+        free(h_ui64RandBufComp2) ;
+        free(h_ui64RandBufComp3) ;
+        free(h_ui64RandBufComp4) ;
+        
+        free(h_ui64RandBuf2nd1) ;
+        free(h_ui64RandBuf2nd2) ;
+        free(h_ui64RandBuf2nd3) ;
+        free(h_ui64RandBuf2nd4) ;
         
         overall_success &= zero_success ;
 	//End
