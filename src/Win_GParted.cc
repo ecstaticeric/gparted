@@ -56,7 +56,7 @@ Win_GParted::Win_GParted( const std::vector<Glib::ustring> & user_devices )
 	current_device = 0 ;
 	OPERATIONSLIST_OPEN = true ;
 	gparted_core .set_user_devices( user_devices ) ;
-	
+
 	MENU_NEW = TOOLBAR_NEW =
         MENU_DEL = TOOLBAR_DEL =
         MENU_RESIZE_MOVE = TOOLBAR_RESIZE_MOVE =
@@ -71,7 +71,8 @@ Win_GParted::Win_GParted( const std::vector<Glib::ustring> & user_devices )
         MENU_LABEL_PARTITION =
         MENU_CHANGE_UUID =
         TOOLBAR_UNDO =
-        TOOLBAR_APPLY = -1 ;
+        TOOLBAR_APPLY =
+	MENU_DEL_DOD = -1 ;
 
 	//==== GUI =========================
 	this ->set_title( _("GParted") );
@@ -240,7 +241,7 @@ void Win_GParted::init_toolbar()
 	toolbutton ->set_tooltip(tooltips, _("Delete the selected partition") );		
 	toolbar_main.append( *(Gtk::manage(new Gtk::SeparatorToolItem)) );
 	index++ ;
-	
+
 	//RESIZE/MOVE
 	image = manage( new Gtk::Image( Gtk::Stock::GOTO_LAST, Gtk::ICON_SIZE_BUTTON ) );
 	str_temp = _("Resize/Move") ;
@@ -295,6 +296,14 @@ void Win_GParted::init_toolbar()
 	toolbutton ->set_sensitive( false );
 	toolbutton ->set_tooltip(tooltips, _("Apply All Operations") );		
 	
+        TOOLBAR_DEL_DOD = index++ ;
+	toolbutton ->set_tooltip(tooltips, _("Delete data from partition in the selected unallocated space with DoD 5220.22-M standard") );	
+	str_temp = _("Delete DoD 5220.22-M") ;
+	//toolbutton = Gtk::manage(new Gtk::ToolButton(Gtk::Stock::DELETE));	
+	toolbutton = Gtk::manage(new Gtk::ToolButton(*image, str_temp));
+	toolbutton ->signal_clicked().connect( sigc::mem_fun(*this, &Win_GParted::activate_delete_dod) );
+	toolbar_main.append(*toolbutton);
+       
 	//initialize and pack combo_devices
 	liststore_devices = Gtk::ListStore::create( treeview_devices_columns ) ;
 	combo_devices .set_model( liststore_devices ) ;
@@ -386,12 +395,12 @@ void Win_GParted::init_partition_menu()
 	MENU_NAME_PARTITION = index++;
 
 	menu_partition .items() .push_back(
-			Gtk::Menu_Helpers::MenuElem( _("M_anage Flags"),
+			Gtk::Menu_Helpers::MenuElem( _("Manage Flags"),
 						     sigc::mem_fun( *this, &Win_GParted::activate_manage_flags ) ) );
 	MENU_FLAGS = index++ ;
 
 	menu_partition .items() .push_back(
-			Gtk::Menu_Helpers::MenuElem( _("C_heck"),
+			Gtk::Menu_Helpers::MenuElem( _("Check"),
 						     sigc::mem_fun( *this, &Win_GParted::activate_check ) ) );
 	MENU_CHECK = index++ ;
 
@@ -412,7 +421,16 @@ void Win_GParted::init_partition_menu()
 			Gtk::Menu_Helpers::StockMenuElem( Gtk::Stock::DIALOG_INFO,
 							  sigc::mem_fun(*this, &Win_GParted::activate_info) ) );
 	MENU_INFO = index++ ;
-	
+
+	menu_partition .items() .push_back(
+                        Gtk::Menu_Helpers::MenuElem( _("_Delete DoD 5220.22-M Std"),
+                                                          sigc::mem_fun(*this, &Win_GParted::activate_delete_dod) ) );
+			//Gtk::Menu_Helpers::ImageMenuElem( _("_Delete DoD 5220.22-M Std"),
+			//				  Gtk::AccelKey( GDK_Insert, Gdk::BUTTON1_MASK),
+			//				  *image,
+			//				  sigc::mem_fun(*this, &Win_GParted::activate_delete_dod) ) );
+	MENU_DEL_DOD = index++ ;
+
 	menu_partition .accelerate( *this ) ;  
 }
 
@@ -715,6 +733,9 @@ void Win_GParted::Add_Operation( Operation * operation, int index )
 		     operation ->type == OPERATION_CHANGE_UUID ||
 		     operation ->type == OPERATION_LABEL_FILESYSTEM ||
 		     operation ->type == OPERATION_NAME_PARTITION ||
+		     //EDM 2015_09_09 Start
+		     //Handle Add_Operation to add new OPERATION_DELETE_DOD if it is used.
+		     operation ->type == OPERATION_DELETE_DOD ||
 		     gparted_core .snap_to_alignment( operation ->device, operation ->partition_new, error )
 		   )
 		{
@@ -1068,6 +1089,7 @@ void Win_GParted::set_valid_operations()
 	allow_paste( false ); allow_format( false ); allow_toggle_busy_state( false ) ;
 	allow_name_partition( false ); allow_manage_flags( false ); allow_check( false );
 	allow_label_filesystem( false ); allow_change_uuid( false ); allow_info( false );
+        allow_delete_dod( false );
 
 	dynamic_cast<Gtk::Label*>( menu_partition .items()[ MENU_TOGGLE_BUSY ] .get_child() )
 		->set_label( FileSystem::get_generic_text ( CTEXT_DEACTIVATE_FILESYSTEM ) ) ;
@@ -1085,6 +1107,7 @@ void Win_GParted::set_valid_operations()
 
 	//if there's something, there's some info ;)
 	allow_info( true ) ;
+        allow_delete_dod( true );
 
 	// Set an appropriate name for the activate/deactivate menu item.
 	const FileSystem * filesystem_object = gparted_core.get_filesystem_object( selected_partition_ptr->filesystem );
@@ -1217,6 +1240,7 @@ void Win_GParted::set_valid_operations()
 		if ( selected_partition_ptr->logicals.size()      == 1                &&
 		     selected_partition_ptr->logicals.back().type == TYPE_UNALLOCATED    )
 			allow_delete( true ) ;
+                        allow_delete_dod( true ) ;
 		
 		if ( ! devices[ current_device ] .readonly )
 			allow_resize( true ) ; 
@@ -1232,6 +1256,7 @@ void Win_GParted::set_valid_operations()
 		// only allow deletion of partitions within a partition table
 		if ( ! selected_partition_ptr->whole_device )
 			allow_delete( true );
+                        allow_delete_dod( true ) ;
 
 		//find out if resizing/moving is possible
 		if ( (fs .grow || fs .shrink || fs .move ) && ! devices[ current_device ] .readonly ) 
@@ -1983,7 +2008,7 @@ void Win_GParted::activate_delete()
 	// VGNAME from mount mount
 	if ( selected_partition_ptr->filesystem == FS_LVM2_PV && ! selected_partition_ptr->get_mountpoint().empty() )
 	{
-		if ( ! remove_non_empty_lvm2_pv_dialog( OPERATION_DELETE ) )
+		if ( ! remove_non_empty_lvm2_pv_dialog( OPERATION_DELETE) )
 			return ;
 	}
 
@@ -2084,6 +2109,118 @@ void Win_GParted::activate_delete()
 
 	show_operationslist() ;
 }
+
+void Win_GParted::activate_delete_dod()
+{ 
+	g_assert( selected_partition_ptr != NULL );  // Bug: Partition callback without a selected partition
+	g_assert( valid_display_partition_ptr( selected_partition_ptr ) );  // Bug: Not pointing at a valid display partition object
+
+	// VGNAME from mount mount
+	if ( selected_partition_ptr->filesystem == FS_LVM2_PV && ! selected_partition_ptr->get_mountpoint().empty() )
+	{
+		if ( ! remove_non_empty_lvm2_pv_dialog( OPERATION_DELETE_DOD ) )
+			return ;
+	}
+
+	/* since logicals are *always* numbered from 5 to <last logical> there can be a shift
+	 * in numbers after deletion.
+	 * e.g. consider /dev/hda5 /dev/hda6 /dev/hda7. Now after removal of /dev/hda6,
+	 * /dev/hda7 is renumbered to /dev/hda6
+	 * the new situation is now /dev/hda5 /dev/hda6. If /dev/hda7 was mounted 
+	 * the OS cannot find /dev/hda7 anymore and the results aren't that pretty.
+	 * It seems best to check for this and prohibit deletion with some explanation to the user.*/
+	 if ( selected_partition_ptr->type             == TYPE_LOGICAL                         &&
+	      selected_partition_ptr->status           != STAT_NEW                             &&
+	      selected_partition_ptr->partition_number <  devices[current_device].highest_busy    )
+	{	
+		Gtk::MessageDialog dialog( *this,
+		                           String::ucompose( _("Unable to delete %1!"), selected_partition_ptr->get_path() ),
+		                           false,
+		                           Gtk::MESSAGE_ERROR,
+		                           Gtk::BUTTONS_OK,
+		                           true );
+
+		dialog .set_secondary_text( 
+			String::ucompose( _("Please unmount any logical partitions having a number higher than %1"),
+					  selected_partition_ptr->partition_number ) );
+
+		dialog .run() ;
+		return;
+	}
+	
+	//if partition is on the clipboard...(NOTE: we can't use Partition::== here..)
+	if ( selected_partition_ptr->get_path() == copied_partition.get_path() )
+	{
+		Gtk::MessageDialog dialog( *this,
+		                           String::ucompose( _("Are you sure you want to delete with DoD std %1?"),
+		                                             selected_partition_ptr->get_path() ),
+		                           false,
+		                           Gtk::MESSAGE_QUESTION,
+		                           Gtk::BUTTONS_NONE,
+		                           true );
+
+		dialog .set_secondary_text( _("After deletion this partition is no longer available for copying.") ) ;
+		
+		/*TO TRANSLATORS: dialogtitle, looks like   Delete /dev/hda2 (ntfs, 2345 MiB) */
+		dialog.set_title( String::ucompose( _("Delete with DoD std  %1 (%2, %3)"),
+		                                    selected_partition_ptr->get_path(),
+		                                    Utils::get_filesystem_string( selected_partition_ptr->filesystem ),
+		                                    Utils::format_size( selected_partition_ptr->get_sector_length(), selected_partition_ptr->sector_size ) ) );
+		dialog .add_button( Gtk::Stock::CANCEL, Gtk::RESPONSE_CANCEL );
+		dialog .add_button( Gtk::Stock::DELETE, Gtk::RESPONSE_OK );
+	
+		dialog .show_all_children() ;
+
+		if ( dialog .run() != Gtk::RESPONSE_OK )
+			return ;
+	}
+	
+	//if deleted partition was on the clipboard we erase it...
+	if ( selected_partition_ptr->get_path() == copied_partition.get_path() )
+		copied_partition .Reset() ;
+			
+	// If deleted one is NEW, it doesn't make sense to add it to the operationslist,
+	// we erase its creation and possible modifications like resize etc.. from the operationslist.
+	// Calling Refresh_Visual will wipe every memory of its existence ;-)
+	if ( selected_partition_ptr->status == STAT_NEW )
+	{
+		//remove all operations done on this new partition (this includes creation)	
+		for ( int t = 0 ; t < static_cast<int>( operations .size() ) ; t++ ) 
+			if ( operations[t]->partition_new.get_path() == selected_partition_ptr->get_path() )
+				remove_operation( t-- ) ;
+				
+		//determine lowest possible new_count
+		new_count = 0 ; 
+		for ( unsigned int t = 0 ; t < operations .size() ; t++ )
+			if ( operations[ t ] ->partition_new .status == GParted::STAT_NEW &&
+			     operations[ t ] ->partition_new .partition_number > new_count )
+				new_count = operations[ t ] ->partition_new .partition_number ;
+			
+		new_count += 1 ;
+			
+		// Verify if the two operations can be merged
+		for ( int t = 0 ; t < static_cast<int>( operations .size() - 1 ) ; t++ )
+		{
+			Merge_Operations( t, t+1 );
+		}
+
+		Refresh_Visual(); 
+				
+		if ( ! operations .size() )
+			close_operationslist() ;
+	}
+	else //deletion of a real partition...
+	{				      
+		OperationDelete * operation = new OperationDelete( devices[ current_device ], *selected_partition_ptr );
+		operation -> OperationDeleteDod();
+		operation ->icon = render_icon( Gtk::Stock::DELETE, Gtk::ICON_SIZE_MENU ) ;
+
+		Add_Operation( operation ) ;
+	}
+
+	show_operationslist() ;
+}
+
 
 void Win_GParted::activate_info()
 {
@@ -2950,6 +3087,10 @@ bool Win_GParted::remove_non_empty_lvm2_pv_dialog( const OperationType optype )
 			break ;
 		case OPERATION_COPY:
 			tmp_msg = String::ucompose( _( "You are pasting over non-empty LVM2 Physical Volume %1" ),
+			                            selected_partition_ptr->get_path() );
+			break ;
+		case OPERATION_DELETE_DOD:
+			tmp_msg = String::ucompose( _( "You are deleting non-empty LVM2 Physical Volume %1 with DOD 52202.22 std" ),
 			                            selected_partition_ptr->get_path() );
 			break ;
 		default:
