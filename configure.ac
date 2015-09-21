@@ -223,7 +223,7 @@ dnl However it is not available in RHEL/CentOS 5.9 with gtkmm 2.10.  Therefore a
 dnl version check isn't sufficient.  Instead perform a more accurate, but slower, compile
 dnl and link a test program check.
 AC_LANG_PUSH([C++])
-CXXFLAGS_save="$CXXFLAGS"
+CXXFLAGS_save="$CXXFLAGS -pthread -std=c++11"
 CXXFLAGS="$CXXFLAGS `pkg-config gtkmm-2.4 --cflags`"
 LIBS_save="$LIBS"
 LIBS="`pkg-config gtkmm-2.4 --libs`"
