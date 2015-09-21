@@ -153,7 +153,6 @@ std::vector<Glib::ustring> LVM2_PV_Info::get_vg_members( const Glib::ustring & v
 }
 
 // Return vector of LVs in the VG.
-/*
 std::vector<Glib::ustring> LVM2_PV_Info::get_vg_lvs( const Glib::ustring & vgname )
 {
 	initialize_if_required();
@@ -174,7 +173,6 @@ std::vector<Glib::ustring> LVM2_PV_Info::get_vg_lvs( const Glib::ustring & vgnam
 
 	return lvs;
 }
-*/
 
 std::vector<Glib::ustring> LVM2_PV_Info::get_error_messages( const Glib::ustring & path )
 {
